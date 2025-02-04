@@ -1,0 +1,54 @@
+#pragma kernel GenerateWind
+
+#include "../Include/Simplex.cginc"
+
+RWTexture2D<float2> _WindMap;
+RWTexture2D<float2> _DisplacementMap;
+StructuredBuffer<float4> _EffectorBuffer;
+
+uint _Dimension;
+int _EffectorSize;
+float2 _Time;
+float4 _WindParams1; // x - Speed, y - Frequency, z - Amplitude, w - Displacement
+float4 _WindParams2; // x - Damping, y - Turbulence Frequency, z - Turbulence Size, w - Displacement Max
+float4x4 _EffectorMatrix, _EffectorInverseMatrix;
+
+float2 GetWind(float2 position)
+{
+    float x = position.x + snoise(float3(position.xy, 0) * _WindParams2.y) * _WindParams2.z;
+    float sin0 = sin((x * _WindParams1.y) + _Time.x * _WindParams1.x);
+    float wind = (sin0 + 1) * 0.5f;
+    return float2(wind * _WindParams1.z, 0);
+}
+
+float2 GetDisplacement(float2 position)
+{
+    float2 displacement = 0;
+    for (int i = 0; i < _EffectorSize; i++)
+    {
+        float4 effector = _EffectorBuffer[i];
+        //const float area = distance(effector.xy, position.xy) / effector.w;
+        float2 delta = effector.xy - position.xy;
+        float radius = effector.w * effector.w;
+        float scale = 1 - smoothstep(0, radius, delta.x * delta.x + delta.y * delta.y);
+        displacement += float2(-delta.x, -delta.y) * scale;
+    }
+
+    return displacement * _WindParams1.w;
+}
+
+[numthreads(8,8,1)]
+void GenerateWind(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _Dimension && id.y >= _Dimension)
+    {
+        return;
+    }
+
+    float2 uv = float2((float)id.x / _Dimension, (float)id.y / _Dimension);
+    const float4 position = mul(_EffectorInverseMatrix, float4(uv, 0, 1));
+
+    float2 displacement = GetDisplacement(uv);
+    _DisplacementMap[id.xy] = displacement;
+    _WindMap[id.xy] = GetWind(position.xy) + displacement;
+}

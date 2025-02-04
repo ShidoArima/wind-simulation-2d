@@ -1,0 +1,146 @@
+#pragma kernel accumulate_forces
+#pragma kernel simulate
+#pragma kernel solve
+#pragma kernel populate
+
+#define PI 3.14159265358979323846
+#define SKIP_POINT if(id.x >= _PointCount)return;
+#define SKIP_EDGE if(id.x >= _EdgeCount)return;
+
+struct Point
+{
+    float2 position;
+    float2 oldPosition;
+    int stable;
+};
+
+struct Edge
+{
+    int a;
+    int b;
+    float length;
+};
+
+RWStructuredBuffer<float2> _ForcesBuffer;
+RWStructuredBuffer<float3> _VerticesBuffer;
+RWStructuredBuffer<Point> _PointBuffer;
+RWStructuredBuffer<Edge> _EdgeBuffer;
+Texture2D<float2> _EffectorMap;
+SamplerState sampler_EffectorMap;
+
+uint _PointCount;
+uint _EdgeCount;
+float2 _Gravity;
+float _DeltaTime;
+float _Stiffness;
+float _EffectorForce;
+float _Width;
+float3 _WorldPosition;
+float4x4 _EffectorMatrix;
+
+float2 GetWind(float2 position)
+{
+    float4 uv = mul(_EffectorMatrix, float4(position.xy, 0, 1));
+    const float2 displacement = _EffectorMap.SampleLevel(sampler_EffectorMap, uv.xy, 0);
+    return displacement * _EffectorForce;
+}
+
+[numthreads(8,1,1)]
+void accumulate_forces(uint3 id : SV_DispatchThreadID)
+{
+    SKIP_POINT
+
+    const uint index = id.x;
+
+    Point p = _PointBuffer[index];
+
+    float2 wind = GetWind(p.position.xy);
+
+    _ForcesBuffer[index] = _Gravity + wind;
+}
+
+[numthreads(8,1,1)]
+void simulate(uint3 id : SV_DispatchThreadID)
+{
+    SKIP_POINT
+
+    const uint index = id.x;
+
+    Point p = _PointBuffer[index];
+
+    if (p.stable > 0)
+        return;
+
+    float2 position = p.position;
+    float2 delta = position - p.oldPosition;
+    p.position += delta + _ForcesBuffer[index].xy * (_DeltaTime * _DeltaTime);
+    p.oldPosition = position;
+
+    _PointBuffer[index] = p;
+}
+
+float2 compute_delta(Edge e)
+{
+    const Point a = _PointBuffer[e.a];
+    const Point b = _PointBuffer[e.b];
+
+    const float2 delta = b.position - a.position;
+    const float current = length(delta);
+    const float f = (current - e.length * _Stiffness) / current;
+    if (isnan(f) || isinf(f))
+    {
+        return (0).xx;
+    }
+    return f * delta * 0.5;
+}
+
+[numthreads(8,1,1)]
+void solve(uint3 id : SV_DispatchThreadID)
+{
+    for (uint i = 0; i < _EdgeCount; i++)
+    {
+        const Edge e = _EdgeBuffer[i];
+
+        Point a = _PointBuffer[e.a];
+        Point b = _PointBuffer[e.b];
+
+        const float2 delta = compute_delta(e);
+
+        if (a.stable == 0)
+        {
+            a.position += delta;
+            a.position += delta * b.stable;
+        }
+
+        if (b.stable == 0)
+        {
+            b.position -= delta;
+            b.position -= delta * a.stable;
+        }
+
+        _PointBuffer[e.a] = a;
+        _PointBuffer[e.b] = b;
+    }
+}
+
+[numthreads(8,1,1)]
+void populate(uint3 id : SV_DispatchThreadID)
+{
+    SKIP_EDGE
+
+    const uint index = id.x;
+
+    const Edge e = _EdgeBuffer[index];
+    Point a = _PointBuffer[e.a];
+    Point b = _PointBuffer[e.b];
+
+    float2 diff = b.position - a.position;
+    float2 dir = normalize(float2(-diff.y, diff.x));
+
+    const float3 offset = float3(dir.xy, 0) * _Width;
+    _VerticesBuffer[e.a * 2] = float3(a.position.x, a.position.y, _WorldPosition.z) + offset;
+    _VerticesBuffer[e.a * 2 + 1] = float3(a.position.x, a.position.y, _WorldPosition.z) - offset;
+
+    _VerticesBuffer[e.b * 2] = float3(b.position.x, b.position.y, _WorldPosition.z) + offset;
+    _VerticesBuffer[e.b * 2 + 1] = float3(b.position.x, b.position.y, _WorldPosition.z) - offset;
+}
