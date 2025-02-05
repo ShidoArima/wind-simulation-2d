@@ -82,16 +82,16 @@ MonoBehaviour:
   _startPoint: {fileID: 3594227216583291336}
   _endPoint: {fileID: 7365531088890150975}
   _endFixed: 1
-  _segmentsCount: 15
+  _segmentsCount: 30
   _iterations: 1
   _width: 0.1
   _gravity: {x: 0, y: -15}
   _windForce: 200
   _stiffness: 1
   _bounds:
-    m_Center: {x: 3.8343835, y: 0.5957582, z: 20}
-    m_Extent: {x: 3.8343835, y: 2.5899868, z: 0}
-  _restDistance: 0.5236563
+    m_Center: {x: 3.924036, y: 0.5957587, z: 20}
+    m_Extent: {x: 3.924036, y: 2.7690187, z: 0}
+  _restDistance: 0.27027422
   _bakedPositions: []
   _baked: 0
 --- !u!1 &7519352476577503449

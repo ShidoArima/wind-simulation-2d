@@ -14,7 +14,7 @@ PrefabInstance:
       objectReference: {fileID: 3306451490063965843, guid: 0000000000000000d000000000000000, type: 0}
     - target: {fileID: 870264668760012074, guid: 54c87ae99b87f2f479baac686257acdb, type: 3}
       propertyPath: m_Name
-      value: Wire-Open Variant
+      value: Wire-Open
       objectReference: {fileID: 0}
     - target: {fileID: 2998391965631379367, guid: 54c87ae99b87f2f479baac686257acdb, type: 3}
       propertyPath: _baked
@@ -43,6 +43,10 @@ PrefabInstance:
     - target: {fileID: 2998391965631379367, guid: 54c87ae99b87f2f479baac686257acdb, type: 3}
       propertyPath: _restDistance
       value: 0.23862354
+      objectReference: {fileID: 0}
+    - target: {fileID: 2998391965631379367, guid: 54c87ae99b87f2f479baac686257acdb, type: 3}
+      propertyPath: _segmentsCount
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 2998391965631379367, guid: 54c87ae99b87f2f479baac686257acdb, type: 3}
       propertyPath: _bounds.m_Center.x
